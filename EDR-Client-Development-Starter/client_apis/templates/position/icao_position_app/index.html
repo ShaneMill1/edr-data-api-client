@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<html lang="en">
+<head>
+    <title>METAR Feature Extraction from EDR-API</title>
+    <script src="http://localhost:5000/static/stations.js"></script>
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>    
+</head>
+<body>
+        <div>
+                <h1>Client Development Example for METAR Extraction from EDR-API</h1>
+                <p><a href="http://localhost:5000/position/icao_position_app/info">Information</a></p>
+                <select id="parameter-dropdown" name="parameter"></select>
+                <input type="search" id="searchicao" name="search">
+                <button onclick="getValue('icao',document.getElementById('searchicao').value)">Search by ICAO</button>
+                <input type="search" id="searchwmo" name="search">
+                <button onclick="getValue('synop',document.getElementById('searchwmo').value)">Search by WMO Code</button>        
+                <input list="searchname" id="searchname-choice" name="searchname-choice" />
+                <datalist id="searchname">
+                </datalist>        
+                <button onclick="getValue('station',document.getElementById('searchname-choice').value)">Search by Name</button>        
+        </div>
+        <div>
+                <img style="display:none" src="http://labs.metoffice.gov.uk/map/loader.gif" alt="loading..." id="loading_wheel" />
+                <div id='myDiv'><!-- Plotly chart will be drawn inside this DIV --></div>
+        </div>
+</body>
+<div id='request_link'>
+</div>
+<script>
+function getMetaData(){
+   let dropdown = document.getElementById('parameter-dropdown');
+   dropdown.length = 0;
+
+   let defaultOption = document.createElement('option');
+   defaultOption.text = 'Choose Parameter';
+
+   dropdown.add(defaultOption);
+   dropdown.selectedIndex = 0;
+
+   const url = 'http://localhost:5001/collections/metar/raw?outputFormat=application%2Fjson';
+
+   const request = new XMLHttpRequest();
+   request.open('GET', url, true);
+
+   request.onload = function() {
+     if (request.status === 200) {
+       const data = JSON.parse(request.responseText);
+       parameters=data.parameters
+       parameter_list=Object.keys(parameters)
+       let option;
+       for (let i = 0; i < parameter_list.length; i++) {
+         option = document.createElement('option');
+         option.text = parameter_list[i];
+         option.value = parameter_list[i];
+         dropdown.add(option);
+       }
+     } else {
+       // Reached the server, but it returned an error
+     }
+   }
+
+   request.onerror = function() {
+     console.error('An error occurred fetching the JSON from ' + url);
+   };
+
+   request.send();
+}
+getMetaData()
+
+
+        var trace1 = {
+                x: [],
+                y: [],
+                mode: 'lines+markers',
+                connectgaps: false,
+                name: 'Metar'
+                };
+        
+
+        var coords;
+        document.getElementById("loading_wheel").style.cssText = "display:inline;left:50%;top:50%;width:35px;height:35px;z-index:10000;position:absolute;";    
+        let namelist = "";
+        for( index in sites["features"] )
+        {
+            namelist += '<option value="'+sites["features"][index]["properties"]["station"]+'">';
+        }
+        document.getElementById('searchname').innerHTML = namelist;
+        document.getElementById("loading_wheel").style.cssText = "display:none;";
+        
+        function getValue( key, value ){
+            if (key == "icao") {
+                document.getElementById("searchwmo").value = "";
+                document.getElementById("searchname").value = "";
+            } else if (key == "synop") {
+                document.getElementById("searchicao").value = "";
+                document.getElementById("searchname").value = "";
+            } else if (key == "station") {
+                document.getElementById("searchicao").value = "";
+                document.getElementById("searchwmo").value = "";
+
+            }            
+    
+            result = "";
+            trace1 = {
+                x: [],
+                y: [],
+                mode: 'lines+markers',
+                connectgaps: false,
+                name: 'Metar'
+                };
+                  
+
+            for( index in sites["features"] )
+            {
+                feature = sites["features"][index];
+                if (feature["properties"][key] != null) {
+                    if (typeof(feature["properties"][key]) == "number") {
+                        if (feature["properties"][key] == parseInt(value)) {
+                        result = feature;
+                    }
+    
+                    }
+                    else {
+                        if (feature["properties"][key].toLowerCase().trim() == value.toLowerCase().trim()) {
+                        result = feature;
+                    }
+                    }
+                } 
+            }
+            coords = result["geometry"]["coordinates"];
+            document.getElementById("loading_wheel").style.cssText = "display:inline;left:50%;top:50%;width:35px;height:35px;z-index:10000;position:absolute;";
+            getData()
+        }  
+    
+        function getData() {
+                        
+            var parameter=document.getElementById("parameter-dropdown");
+            var p = parameter.value;
+            let oReq = new XMLHttpRequest();
+            var api_request = "http://localhost:5001/collections/metar/raw/position?coords=POINT("+coords[0]+"%20"+coords[1]+")&parametername="+p+",icao_id&outputFormat=CoverageJSON"
+            oReq.open("GET", api_request);
+            oReq.addEventListener("load", reqListener);
+            oReq.send();
+            var api_html = "http://localhost:5001/collections/metar/raw/position?coords=POINT("+coords[0]+"%20"+coords[1]+")"+"&amp;para"+"metername="+p+",icao_id&outputFormat=CoverageJSON"
+            document.getElementById('request_link').innerHTML = '<a href="' + api_request + '">' + api_html + '</a>';
+        }
+    
+    
+        function reqListener() {
+            metar = JSON.parse(this.responseText);
+            var parameters=metar.parameters;
+            var param_list=Object.keys(parameters);
+            var p = param_list[0];
+            var name=parameters[p].description.en;
+            var unit=parameters[p].unit.symbol.value; 
+            console.log(parameters[p])
+
+            trace1.x = metar["domain"]["axes"]["t"]["values"]
+            trace1.y = metar["ranges"][p]["values"];
+            var data = [trace1];
+            var layout = {
+            title: 'Metar '+ p +' for ' + metar["ranges"]["icao_id"]["values"][0],
+            xaxis: {
+               title: 'Time'
+            },
+            yaxis: {
+                title: name+' '+unit 
+                }        
+            };
+            document.getElementById("loading_wheel").style.cssText = "display:none;";
+            Plotly.newPlot('myDiv', data, layout);        
+        }
+    
+    
+    
+        </script>
+    
+</html>
