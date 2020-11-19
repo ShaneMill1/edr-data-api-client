@@ -38,7 +38,7 @@ function getMetaData(){
    dropdown.add(defaultOption);
    dropdown.selectedIndex = 0;
 
-   const url = 'http://localhost:5001/collections/metar/raw?outputFormat=application%2Fjson';
+   const url = 'http://localhost:5001/collections/metar/raw?f=application%2Fjson';
 
    const request = new XMLHttpRequest();
    request.open('GET', url, true);
@@ -138,11 +138,11 @@ getMetaData()
             var parameter=document.getElementById("parameter-dropdown");
             var p = parameter.value;
             let oReq = new XMLHttpRequest();
-            var api_request = "http://localhost:5001/collections/metar/raw/position?coords=POINT("+coords[0]+"%20"+coords[1]+")&parametername="+p+",icao_id&outputFormat=CoverageJSON"
+            var api_request = "http://localhost:5001/collections/metar/raw/position?coords=POINT("+coords[0]+"%20"+coords[1]+")&parametername="+p+",icao_id&f=CoverageJSON"
             oReq.open("GET", api_request);
             oReq.addEventListener("load", reqListener);
             oReq.send();
-            var api_html = "http://localhost:5001/collections/metar/raw/position?coords=POINT("+coords[0]+"%20"+coords[1]+")"+"&amp;para"+"metername="+p+",icao_id&outputFormat=CoverageJSON"
+            var api_html = "http://localhost:5001/collections/metar/raw/position?coords=POINT("+coords[0]+"%20"+coords[1]+")"+"&amp;para"+"metername="+p+",icao_id&f=CoverageJSON"
             document.getElementById('request_link').innerHTML = '<a href="' + api_request + '">' + api_html + '</a>';
         }
     
